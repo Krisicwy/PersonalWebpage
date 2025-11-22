@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人主页 | AI & Robotics</title>
+    <style>
+        /* --- 1. 定义配色变量 (CSS Variables) --- */
+        :root {
+            /* --- 默认深色主题 (Dark Mode) --- */
+            --bg-color: #0b1121;
+            --canvas-bg: #0b1121;
+            --text-main: #e2e8f0;
+            --text-muted: #64748b;
+            --accent: #00f3ff;           /* 赛博青 */
+            --accent-hover: #00bcd4;
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --code-bg: #1e1e1e;
+            --nav-bg: rgba(11, 17, 33, 0.7);
+            --shadow: rgba(0, 0, 0, 0.5);
+            --particle-color: #00f3ff;   /* JS读取此变量用于Canvas */
+        }
+
+        /* --- 浅色主题 (Light Mode - 黑白文档风) --- */
+        body.light-mode {
+            --bg-color: #ffffff;
+            --canvas-bg: #f8fafc;        /* 极浅的灰白，避免刺眼 */
+            --text-main: #1e293b;        /* 深岩灰，接近黑色 */
+            --text-muted: #475569;
+            --accent: #000000;           /* 纯黑作为强调色，极简 */
+            --accent-hover: #333333;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --code-bg: #f1f5f9;          /* 浅色代码块背景 */
+            --nav-bg: rgba(255, 255, 255, 0.8);
+            --shadow: rgba(0, 0, 0, 0.1);
+            --particle-color: #334155;   /* 粒子改为深灰色 */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* --- Canvas --- */
+        #geo-canvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: var(--canvas-bg);
+        }
+
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        ul { list-style: none; }
+
+        /* --- 导航栏 --- */
+        header {
+            background: var(--nav-bg);
+            backdrop-filter: blur(8px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        nav {
+            max-width: 1200px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .logo {
+            font-size: 1.4rem; font-weight: bold; color: var(--accent); letter-spacing: -1px;
+        }
+
+        .nav-right { display: flex; align-items: center; gap: 2rem; }
+        .nav-links { display: flex; gap: 2rem; font-size: 0.9rem; }
+        .nav-links a:hover { color: var(--accent); text-decoration: underline; }
+
+        /* --- 主题切换按钮 --- */
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+
+        /* --- Hero --- */
+        .hero {
+            min-height: 90vh;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 0 2rem;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem; margin-bottom: 1rem; color: var(--text-main);
+        }
+        
+        .hero p {
+            font-size: 1.1rem; color: var(--text-muted); max-width: 600px;
+            margin-bottom: 2.5rem; border-left: 2px solid var(--accent);
+            padding: 10px 15px; text-align: left;
+            background: var(--card-bg);
+            border-radius: 0 5px 5px 0;
+        }
+
+        .btn {
+            padding: 0.8rem 2.5rem; background: transparent;
+            color: var(--accent); border: 1px solid var(--accent);
+            font-weight: bold; transition: 0.3s;
+        }
+
+        .btn:hover {
+            background: var(--accent);
+            color: var(--bg-color); /* 浅色模式下文字变白，深色下文字变黑 */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        /* 特殊处理浅色模式下的按钮文字颜色 */
+        body.light-mode .btn:hover { color: #fff; } 
+        body:not(.light-mode) .btn:hover { color: #000; }
+
+        /* --- Section --- */
+        section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+
+        .section-title {
+            font-size: 1.8rem; margin-bottom: 3rem; display: flex; align-items: center; color: var(--accent);
+        }
+        .section-title::before { content: '>'; margin-right: 10px; font-weight: bold; }
+
+        /* --- Terminal Style Card --- */
+        .about-container { display: grid; grid-template-columns: 3fr 2fr; gap: 3rem; align-items: start; }
+
+        .terminal-card {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 5px; padding: 20px;
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+
+        .term-header { display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .term-dot { width: 12px; height: 12px; border-radius: 50%; background: #ccc; }
+        .term-dot.red { background: #ff5f56; } 
+        .term-dot.yellow { background: #ffbd2e; } 
+        .term-dot.green { background: #27c93f; }
+
+        /* 浅色模式下让红黄绿点稍微暗一点，或者保持原样 */
+        .code-content { font-family: 'Fira Code', monospace; font-size: 0.9rem; color: var(--text-main); }
+        
+        /* 代码高亮颜色适配 */
+        .var { color: #bd93f9; } body.light-mode .var { color: #7c3aed; } /* 紫色变深紫 */
+        .str { color: #f1fa8c; } body.light-mode .str { color: #059669; } /* 黄色变深绿 */
+        .func { color: #8be9fd; } body.light-mode .func { color: #0284c7; } /* 蓝色变深蓝 */
+        .comment { color: #6272a4; font-style: italic; }
+
+        /* --- Projects --- */
+        .projects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+
+        .project-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem; transition: 0.3s; position: relative;
+        }
+
+        .project-item::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0;
+            border-top: 20px solid var(--accent); border-right: 20px solid transparent; opacity: 0.5;
+        }
+
+        .project-item:hover {
+            border-color: var(--accent); transform: translateY(-5px);
+            box-shadow: 0 10px 20px var(--shadow);
+        }
+
+        .tech-tag {
+            display: inline-block; font-size: 0.75rem; padding: 2px 8px;
+            border: 1px solid var(--border-color); color: var(--text-muted);
+            margin-right: 5px; margin-top: 10px; background: var(--code-bg);
+        }
+
+        footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); }
+
+        @media (max-width: 768px) {
+            .about-container { grid-template-columns: 1fr; }
+            .nav-links { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="geo-canvas"></canvas>
+
+    <header>
+        <nav>
+            <div class="logo">./Portfolio</div>
+            <div class="nav-right">
+                <ul class="nav-links">
+                    <li><a href="#home">_main</a></li>
+                    <li><a href="#skills">_skills</a></li>
+                    <li><a href="#projects">_projects</a></li>
+                    <li><a href="#contact">_contact</a></li>
+                </ul>
+                <!-- 主题切换按钮 -->
+                <button class="theme-toggle" id="theme-btn" title="Switch Theme">
+                    <span id="theme-icon">☀</span> Mode
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <section id="home" class="hero">
+        <h1>[你的名字]</h1>
+        <p>
+            > Major: Computer Science<br>
+            > Focus: Artificial Intelligence & Robotics<br>
+            > Status: Ready to build the future
+        </p>
+        <a href="#projects" class="btn">EXECUTE_PROJECTS</a>
+    </section>
+
+    <section id="skills">
+        <h2 class="section-title">Tech_Stack_Matrix</h2>
+        <div class="about-container">
+            <div class="terminal-card">
+                <div class="term-header">
+                    <div class="term-dot red"></div>
+                    <div class="term-dot yellow"></div>
+                    <div class="term-dot green"></div>
+                </div>
+                <div class="code-content">
+                    <span class="comment"># System Configuration</span><br>
+                    <span class="var">engineer</span> = {<br>
+                    &nbsp;&nbsp;<span class="str">"Languages"</span>: [<span class="str">"Python"</span>, <span class="str">"C++"</span>, <span class="str">"MATLAB"</span>],<br>
+                    &nbsp;&nbsp;<span class="str">"AI_Core"</span>: [<span class="str">"PyTorch"</span>, <span class="str">"Computer Vision"</span>],<br>
+                    &nbsp;&nbsp;<span class="str">"Robotics"</span>: [<span class="str">"ROS2"</span>, <span class="str">"SLAM"</span>, <span class="str">"Lidar"</span>]<br>
+                    }<br>
+                    <span class="func">print</span>(<span class="str">"Hello World"</span>)
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; justify-content: center;">
+                <h3>为何选择这些技术？</h3>
+                <p style="color: var(--text-muted); margin-top: 1rem;">
+                    Python 是神经网络的语言，而 C++ 是机器人的骨骼。作为 CS 学生，我不仅关注算法的优雅，更注重其在物理世界的实时表现。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section id="projects">
+        <h2 class="section-title">Project_Nodes</h2>
+        <div class="projects-grid">
+            <div class="project-item">
+                <h3>视觉 SLAM 导航</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 10px 0;">
+                    基于 ORB-SLAM2，在树莓派上实现即时定位与建图。
+                </p>
+                <div><span class="tech-tag">C++</span><span class="tech-tag">ROS</span></div>
+            </div>
+            <div class="project-item">
+                <h3>机械臂抓取</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 10px 0;">
+                    结合 YOLOv8 识别与逆运动学解算，实现自动化分拣。
+                </p>
+                <div><span class="tech-tag">Python</span><span class="tech-tag">PyTorch</span></div>
+            </div>
+            <div class="project-item">
+                <h3>强化学习仿真</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 10px 0;">
+                    使用 Gym 环境训练 Agent，实现倒立摆自动平衡控制。
+                </p>
+                <div><span class="tech-tag">RL</span><span class="tech-tag">DQN</span></div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        &copy; 2023 [你的名字]. Process finished with exit code 0.
+    </footer>
+
+    <script>
+        // --- 主题切换逻辑 ---
+        const themeBtn = document.getElementById('theme-btn');
+        const themeIcon = document.getElementById('theme-icon');
+        const body = document.body;
+        
+        // 检查本地存储的首选项
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme === 'light') {
+            body.classList.add('light-mode');
+            themeIcon.textContent = '☾'; // 如果是亮色，图标显示月亮
+        }
+
+        themeBtn.addEventListener('click', () => {
+            body.classList.toggle('light-mode');
+            
+            let theme = 'dark';
+            if (body.classList.contains('light-mode')) {
+                theme = 'light';
+                themeIcon.textContent = '☾';
+            } else {
+                themeIcon.textContent = '☀';
+            }
+            localStorage.setItem('theme', theme);
+            
+            // 重要：切换主题后，通知 Canvas 更新颜色
+            updateCanvasColors();
+        });
+
+        // --- Canvas 逻辑 ---
+        const canvas = document.getElementById('geo-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+        
+        // 定义 Canvas 颜色配置（根据主题动态变化）
+        let particleColorString = '#00f3ff'; // 默认深色主题青色
+        
+        function updateCanvasColors() {
+            if (body.classList.contains('light-mode')) {
+                particleColorString = 'rgba(30, 41, 59, 1)'; // 浅色主题下用深灰/黑
+            } else {
+                particleColorString = '#00f3ff'; // 深色主题下用青色
+            }
+        }
+        // 初始化时调用一次
+        updateCanvasColors();
+
+        const mouse = { x: null, y: null, radius: 150 };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initParticles();
+        }
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 1.0; // 速度稍微调慢一点，更优雅
+                this.vy = (Math.random() - 0.5) * 1.0;
+                this.size = Math.random() * 2 + 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                // 鼠标排斥逻辑
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < mouse.radius) {
+                    const forceDirectionX = dx / distance;
+                    const forceDirectionY = dy / distance;
+                    const force = (mouse.radius - distance) / mouse.radius;
+                    const directionX = forceDirectionX * force * 2;
+                    const directionY = forceDirectionY * force * 2;
+                    this.x -= directionX;
+                    this.y -= directionY;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = particleColorString; // 使用动态变量
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            let numberOfParticles = (width * height) / 10000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function connect() {
+            let opacityValue = 1;
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a; b < particles.length; b++) {
+                    let dx = particles[a].x - particles[b].x;
+                    let dy = particles[a].y - particles[b].y;
+                    let distance = dx * dx + dy * dy;
+
+                    if (distance < (width/7) * (height/7)) { 
+                        opacityValue = 1 - (distance / 20000);
+                        
+                        // 动态计算线条颜色 (使用 RGB 方便控制透明度)
+                        if(body.classList.contains('light-mode')){
+                             // 浅色模式：深灰线条
+                             ctx.strokeStyle = 'rgba(30, 41, 59,' + opacityValue * 0.15 + ')';
+                        } else {
+                             // 深色模式：青色线条
+                             ctx.strokeStyle = 'rgba(0, 243, 255,' + opacityValue * 0.2 + ')';
+                        }
+                        
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, width, height);
+
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+            connect();
+        }
+
+        window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+        window.addEventListener('mouseout', () => { mouse.x = undefined; mouse.y = undefined; });
+        window.addEventListener('resize', resize);
+
+        resize();
+        animate();
+    </script>
+</body>
+</html>
